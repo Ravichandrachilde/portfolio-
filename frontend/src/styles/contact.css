@@ -1,0 +1,126 @@
+.contact-section {
+  background: var(--color-background);
+}
+
+.contact-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: start;
+}
+
+@media (max-width: 968px) {
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.contact-info {
+  position: sticky;
+  top: 100px;
+}
+
+@media (max-width: 968px) {
+  .contact-info {
+    position: static;
+  }
+}
+
+.contact-details {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.contact-detail-item {
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.contact-detail-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.contact-link {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--accent-primary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+  display: inline-block;
+  margin-top: 8px;
+}
+
+.contact-link:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+.contact-form-wrapper {
+  padding: 40px;
+}
+
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--color-background);
+  border: 2px solid var(--border-color);
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.form-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.form-message.success {
+  background: #D1FAE5;
+  color: #065F46;
+  border: 1px solid #10B981;
+}
+
+.form-message.error {
+  background: #FEE2E2;
+  color: #991B1B;
+  border: 1px solid #EF4444;
+}
+
+@media (max-width: 768px) {
+  .contact-form-wrapper {
+    padding: 24px;
+  }
+}
