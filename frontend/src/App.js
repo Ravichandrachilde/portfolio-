@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Analytics } from "@vercel/analytics/react" // <--- 1. Add this import
 import './App.css';
 import './styles/portfolio.css';
 import Header from './components/Header';
@@ -26,6 +27,8 @@ function App() {
       <Experience />
       <Contact />
       <Footer />
+      
+      <Analytics /> {/* <--- 2. Add this component at the bottom */}
     </div>
   );
 }
