@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Analytics } from "@vercel/analytics/react" // <--- 1. Add this import
+import { Analytics } from "@vercel/analytics/react";
 import './App.css';
 import './styles/portfolio.css';
 import Header from './components/Header';
@@ -13,8 +13,21 @@ import Footer from './components/Footer';
 
 function App() {
   useEffect(() => {
-    // Smooth scroll behavior
+    // 1. Smooth scroll behavior
     document.documentElement.style.scrollBehavior = 'smooth';
+
+    // 2. Track Visitor Location
+    const trackVisitor = async () => {
+      try {
+        // Using your specific Railway URL and the /api/track-visit route we added to server.py
+        await fetch('https://portfolio-production-9e46.up.railway.app/api/track-visit');
+      } catch (error) {
+        // We use console.log so the user doesn't see any errors if tracking fails
+        console.log("Analytics ping skipped");
+      }
+    };
+
+    trackVisitor();
   }, []);
 
   return (
@@ -28,7 +41,7 @@ function App() {
       <Contact />
       <Footer />
       
-      <Analytics /> {/* <--- 2. Add this component at the bottom */}
+      <Analytics /> 
     </div>
   );
 }
