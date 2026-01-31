@@ -70,22 +70,33 @@ async def root():
 @api_router.get("/track-visit")
 async def track_visit(request: Request):
     try:
-        # Extract headers automatically passed by Vercel
-        city = request.headers.get('x-vercel-ip-city', 'Unknown')
-        state = request.headers.get('x-vercel-ip-country-region', 'Unknown')
-        country = request.headers.get('x-vercel-ip-country', 'Unknown')
+        # 1. Capture headers with case-insensitive check and multiple possible keys
+        # Vercel often uses 'x-vercel-ip-city' but sometimes proxies capitalize them
+        headers = request.headers
+        
+        city = headers.get('x-vercel-ip-city') or headers.get('X-Vercel-IP-City') or 'Unknown'
+        state = headers.get('x-vercel-ip-country-region') or headers.get('X-Vercel-IP-Country-Region') or 'Unknown'
+        country = headers.get('x-vercel-ip-country') or headers.get('X-Vercel-IP-Country') or 'Unknown'
+
+        # 2. Logic to handle 'Unknown' - if city is unknown, check X-Forwarded-For as a fallback
+        if city == 'Unknown':
+            forwarded_for = headers.get('x-forwarded-for')
+            logger.info(f"Geodata missing. Request IP: {forwarded_for}")
 
         visitor_obj = VisitorLog(city=city, state=state, country=country)
         
-        # Convert to dict and serialize for MongoDB
+        # 3. Convert to dict and serialize for MongoDB
         doc = visitor_obj.model_dump()
-        doc['timestamp'] = doc['timestamp'].isoformat()
+        # Ensure we use a proper datetime object or ISO string for MongoDB
+        if isinstance(doc.get('timestamp'), datetime):
+            doc['timestamp'] = doc['timestamp'].isoformat()
         
-        # Save to a new collection named 'visitor_logs'
+        # 4. Save to collection
         await db.visitor_logs.insert_one(doc)
         
-        logger.info(f"Logged visit from: {city}, {state}")
+        logger.info(f"Successfully logged visit from: {city}, {state} ({country})")
         return {"status": "success", "location": f"{city}, {state}"}
+        
     except Exception as e:
         logger.error(f"Error tracking visit: {str(e)}")
         return {"status": "error", "message": str(e)}
