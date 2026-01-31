@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Request  # Added Request here
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -10,7 +10,6 @@ from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List
 import uuid
 from datetime import datetime, timezone
-
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -26,11 +25,18 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+# --- Define Models ---
 
-# Define Models
+class VisitorLog(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    city: str
+    state: str
+    country: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
-    
+    model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     client_name: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -39,8 +45,7 @@ class StatusCheckCreate(BaseModel):
     client_name: str
 
 class ContactSubmission(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
-    
+    model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     email: EmailStr
@@ -55,87 +60,75 @@ class ContactSubmissionCreate(BaseModel):
     subject: str
     message: str
 
-# Add your routes to the router instead of directly to app
+# --- Routes ---
+
 @api_router.get("/")
 async def root():
     return {"message": "Hello World"}
+
+# NEW: Route to track visitor location from Vercel headers
+@api_router.get("/track-visit")
+async def track_visit(request: Request):
+    try:
+        # Extract headers automatically passed by Vercel
+        city = request.headers.get('x-vercel-ip-city', 'Unknown')
+        state = request.headers.get('x-vercel-ip-country-region', 'Unknown')
+        country = request.headers.get('x-vercel-ip-country', 'Unknown')
+
+        visitor_obj = VisitorLog(city=city, state=state, country=country)
+        
+        # Convert to dict and serialize for MongoDB
+        doc = visitor_obj.model_dump()
+        doc['timestamp'] = doc['timestamp'].isoformat()
+        
+        # Save to a new collection named 'visitor_logs'
+        await db.visitor_logs.insert_one(doc)
+        
+        logger.info(f"Logged visit from: {city}, {state}")
+        return {"status": "success", "location": f"{city}, {state}"}
+    except Exception as e:
+        logger.error(f"Error tracking visit: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
 @api_router.post("/status", response_model=StatusCheck)
 async def create_status_check(input: StatusCheckCreate):
     status_dict = input.model_dump()
     status_obj = StatusCheck(**status_dict)
-    
-    # Convert to dict and serialize datetime to ISO string for MongoDB
     doc = status_obj.model_dump()
     doc['timestamp'] = doc['timestamp'].isoformat()
-    
     _ = await db.status_checks.insert_one(doc)
     return status_obj
 
 @api_router.get("/status", response_model=List[StatusCheck])
 async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
     status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
-    
-    # Convert ISO string timestamps back to datetime objects
     for check in status_checks:
         if isinstance(check['timestamp'], str):
             check['timestamp'] = datetime.fromisoformat(check['timestamp'])
-    
     return status_checks
 
 @api_router.post("/contact")
 async def create_contact_submission(input: ContactSubmissionCreate):
-    """Handle contact form submissions"""
     try:
         submission_dict = input.model_dump()
         submission_obj = ContactSubmission(**submission_dict)
-        
-        # Convert to dict and serialize datetime to ISO string for MongoDB
         doc = submission_obj.model_dump()
         doc['submitted_at'] = doc['submitted_at'].isoformat()
-        
-        # Insert into MongoDB
         result = await db.contact_submissions.insert_one(doc)
-        
         if result.inserted_id:
             logger.info(f"Contact submission created: {submission_obj.id}")
-            return {
-                "success": True,
-                "message": "Contact form submitted successfully",
-                "id": submission_obj.id
-            }
+            return {"success": True, "message": "Contact form submitted", "id": submission_obj.id}
         else:
             raise HTTPException(status_code=500, detail="Failed to save submission")
     except Exception as e:
         logger.error(f"Error creating contact submission: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@api_router.get("/contact", response_model=List[ContactSubmission])
-async def get_contact_submissions():
-    """Get all contact form submissions"""
-    try:
-        # Exclude MongoDB's _id field from the query results
-        submissions = await db.contact_submissions.find({}, {"_id": 0}).sort("submitted_at", -1).to_list(1000)
-        
-        # Convert ISO string timestamps back to datetime objects
-        for submission in submissions:
-            if isinstance(submission['submitted_at'], str):
-                submission['submitted_at'] = datetime.fromisoformat(submission['submitted_at'])
-        
-        logger.info(f"Retrieved {len(submissions)} contact submissions")
-        return submissions
-    except Exception as e:
-        logger.error(f"Error fetching contact submissions: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 @api_router.get("/download-resume")
 async def download_resume():
-    """Serve the resume file for download"""
     resume_path = ROOT_DIR / "static" / "Ravi_Chandra_Sekhar_Resume.pdf"
     if not resume_path.exists():
         raise HTTPException(status_code=404, detail="Resume file not found")
-    
     return FileResponse(
         path=str(resume_path),
         filename="Ravi_Chandra_Sekhar_Resume.pdf",
