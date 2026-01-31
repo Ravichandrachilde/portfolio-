@@ -19,10 +19,12 @@ function App() {
     // 2. Track Visitor Location
     const trackVisitor = async () => {
       try {
-        // Using your specific Railway URL and the /api/track-visit route we added to server.py
-        await fetch('https://portfolio-production-9e46.up.railway.app/api/track-visit');
+        /* IMPORTANT: We use a relative path here. 
+          Vercel sees '/api/railway/' and uses the 'vercel.json' rule 
+          to proxy this to your Railway backend.
+        */
+        await fetch('/api/railway/track-visit');
       } catch (error) {
-        // We use console.log so the user doesn't see any errors if tracking fails
         console.log("Analytics ping skipped");
       }
     };
